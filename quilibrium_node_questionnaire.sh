@@ -6,7 +6,7 @@ cpu_count=$(lscpu | grep 'Socket' | uniq | cut -d':' -f 2); cpu_count=${cpu_coun
 threads_info=$(cat /proc/cpuinfo  | grep process| wc -l); echo "vCores/Threads: $threads_info";
 ram_info=$(dmidecode --type memory | less | grep -o "\<[1-1024].*\> GB"| uniq); echo "Total Ram: $ram_info"' (Double check your system/plan if it seems off)';
 ram_type=$(lshw -class memory | grep 'description: DIMM' | uniq | cut -d':' -f 2); if [[ "$ram_type" == " DIMM RAM" ]]; then ram_type=' VPS/VDS'; else ram_type="${ram_type:5}"; fi; echo 'RAM Type:'$ram_type;
-last_next_difficulty=$(journalctl -u ceremonyclient -ocat -n 100 | grep difficulty | awk -F'[:,}]' '{for(i=1;i<=NF;i++){if($i~"next_difficulty_metric"){gsub(/[ "]/,"",$i); print $(i+1)}}}' | tail -n 1); echo "Last Difficulty: $last_next_difficulty";
+last_next_difficulty=$(journalctl -u ceremonyclient -ocat -n 100 | grep difficulty | awk -F'[:,}]' '{for(i=1;i<=NF;i++){if($i~"next_difficulty_metric"){gsub(/[ "]/,"",$i); print $(i+1)}}}' | tail -n 1); diff_count=${#last_next_difficulty}; if [[ diff_count -le 1 ]]; then echo "Last Difficulty: Error getting difficulty please pull from your logs"; else echo echo "Last Difficulty: "$last_next_difficulty; fi;
 peer_id=$(./node-1.4.18-linux-amd64 -peer-id| grep 'Peer' | cut -d':' -f 2); echo 'Peer ID: '$peer_id;
 echo;
 echo 'Use  this information to fill out the questionnaire @ https://forms.gle/Zy2Ht91LLsMru5kN9';
