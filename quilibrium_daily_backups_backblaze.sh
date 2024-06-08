@@ -80,9 +80,9 @@ echo "Constructed B2 URL: \$B2_URL"
 SGN_KEY="<SGN_KEY_PLACEHOLDER>"
 ENC_KEY="<ENC_KEY_PLACEHOLDER>"
 
-# Export passphrases for GPG
+# Export passphrase environment variables for GPG
 export PASSPHRASE="<GPG_PASSPHRASE>"
-export SIGN_PASSPHRASE="<GPG_PASSPHRASE>"
+export SIGN_PASSPHRASE="<SIGN_PASSPHRASE>"
 
 # Perform the backup using duplicity
 echo "Backing up \$TAR_FILE to B2 storage..."
@@ -105,15 +105,25 @@ EOF
 # Make the backup script executable
 chmod +x $USER_HOME/backup_script.sh
 
+# Check if cron job exists
+existing_cron=$(crontab -l | grep "$USER_HOME/backup_script.sh")
+
 # Prompt the user for B2 variables
 read -p "Enter B2 Account: " B2_ACCOUNT
 read -s -p "Enter B2 Key: " B2_KEY
 echo
 read -p "Enter B2 Bucket: " B2_BUCKET
 
-# Prompt the user for GPG passphrase
+# Prompt the user for GPG passphrases
 read -s -p "Enter GPG Passphrase: " GPG_PASSPHRASE
 echo
+read -s -p "Enter GPG Signing Passphrase (press Enter if same as GPG Passphrase): " SIGN_PASSPHRASE
+echo
+
+# Use the same passphrase if signing passphrase is not provided
+if [ -z "$SIGN_PASSPHRASE" ]; then
+    SIGN_PASSPHRASE=$GPG_PASSPHRASE
+fi
 
 # Replace placeholders in the backup script with the actual values
 sed -i "s|<B2_ACCOUNT_PLACEHOLDER>|$B2_ACCOUNT|g" $USER_HOME/backup_script.sh
@@ -122,9 +132,15 @@ sed -i "s|<B2_BUCKET_PLACEHOLDER>|$B2_BUCKET|g" $USER_HOME/backup_script.sh
 sed -i "s|<SGN_KEY_PLACEHOLDER>|$SGN_KEY|g" $USER_HOME/backup_script.sh
 sed -i "s|<ENC_KEY_PLACEHOLDER>|$ENC_KEY|g" $USER_HOME/backup_script.sh
 sed -i "s|<GPG_PASSPHRASE>|$GPG_PASSPHRASE|g" $USER_HOME/backup_script.sh
+sed -i "s|<SIGN_PASSPHRASE>|$SIGN_PASSPHRASE|g" $USER_HOME/backup_script.sh
 
 # Run the backup script once
 $USER_HOME/backup_script.sh
 
-# Schedule the backup script to run daily at 6:00 AM
-(crontab -l 2>/dev/null; echo "0 6 * * * $USER_HOME/backup_script.sh") | crontab -
+# Schedule the backup script if it's not already scheduled
+if [ -z "$existing_cron" ]; then
+    (crontab -l 2>/dev/null; echo "0 6 * * * $USER_HOME/backup_script.sh") | crontab -
+    echo "Backup script scheduled to run daily at 6:00 AM."
+else
+    echo "Backup script already scheduled."
+fi
