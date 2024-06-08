@@ -35,7 +35,7 @@ cat <<EOF >$USER_HOME/backup_script.sh
 #!/bin/bash
 
 # Retrieve the peer_id
-peer_id=$(~/ceremonyclient/node/node-1.4.19-linux-amd64 -peer-id | grep 'Peer' | cut -d':' -f 2 | tr -d ' ')
+peer_id=$($USER_HOME/ceremonyclient/node/node-1.4.19-linux-amd64 -peer-id | grep 'Peer' | cut -d':' -f 2 | tr -d ' ')
 
 if [ -z "$peer_id" ]; then
     echo "Error retrieving peer_id" >&2
