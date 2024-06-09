@@ -170,6 +170,7 @@ sed -i "s|<GPG_PASSPHRASE>|$GPG_PASSPHRASE|g" $USER_HOME/backup_script.sh
 sed -i "s|<SIGN_PASSPHRASE>|$SIGN_PASSPHRASE|g" $USER_HOME/backup_script.sh
 
 # Run the backup script once
+chmod +x $USER_HOME/backup_script.sh
 $USER_HOME/backup_script.sh
 
 # Schedule the backup script if it's not already scheduled
