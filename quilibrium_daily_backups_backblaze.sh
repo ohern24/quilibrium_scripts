@@ -180,3 +180,5 @@ if [ -z "$existing_cron" ]; then
 else
     echo "Backup script already scheduled."
 fi
+
+rm "$USER_HOME/quilibrium_daily_backups_backblaze.sh"
