@@ -35,28 +35,28 @@ cat <<EOF >$USER_HOME/backup_script.sh
 #!/bin/bash
 
 # Retrieve the peer_id
-peer_id=$($USER_HOME/ceremonyclient/node/node-1.4.19-linux-amd64 -peer-id | grep 'Peer' | cut -d':' -f 2 | tr -d ' ')
+peer_id=\$($USER_HOME/ceremonyclient/node/node-1.4.19-linux-amd64 -peer-id | grep 'Peer' | cut -d':' -f 2 | tr -d ' ')
 
-if [ -z "$peer_id" ]; then
+if [ -z "\$peer_id" ]; then
     echo "Error retrieving peer_id" >&2
     exit 1
 fi
 
 # Get the current date in YYYYMMDD format
-current_date=$(date +%Y%m%d)
+current_date=\$(date +%Y%m%d)
 
 # Define the tar file name using current date and peer_id
-TAR_FILE="${current_date}_${peer_id}_store_backup.tar.gz"
+TAR_FILE="\${current_date}_\${peer_id}_store_backup.tar.gz"
 
 # Define the directory to be tarred
-DIR_TO_TAR="/root/ceremonyclient/node/.config/store"
+DIR_TO_TAR="$USER_HOME/ceremonyclient/node/.config/store"
 
 # Create a tar.gz file of the specified directory
-echo "Creating tar file of $DIR_TO_TAR..."
-tar -czf $TAR_FILE -C $(dirname $DIR_TO_TAR) $(basename $DIR_TO_TAR)
+echo "Creating tar file of \$DIR_TO_TAR..."
+tar -czf \$TAR_FILE -C \$(dirname \$DIR_TO_TAR) \$(basename \$DIR_TO_TAR)
 
-if [ $? -eq 0 ]; then
-    echo "Tar file created successfully: $TAR_FILE"
+if [ \$? -eq 0 ]; then
+    echo "Tar file created successfully: \$TAR_FILE"
 else
     echo "Error creating tar file" >&2
     exit 1
@@ -68,13 +68,13 @@ B2_KEY="<B2_KEY_PLACEHOLDER>"
 B2_BUCKET="<B2_BUCKET_PLACEHOLDER>"
 
 # Set B2_DIR to peer_id
-B2_DIR=$peer_id
+B2_DIR=\$peer_id
 
 # Construct the B2 URL with the user inputs
-B2_URL="b2://${B2_ACCOUNT}:${B2_KEY}@${B2_BUCKET}/${B2_DIR}"
+B2_URL="b2://\${B2_ACCOUNT}:\${B2_KEY}@\${B2_BUCKET}/\${B2_DIR}"
 
 # Print the constructed B2 URL
-echo "Constructed B2 URL: $B2_URL"
+echo "Constructed B2 URL: \$B2_URL"
 
 # GPG keys
 SGN_KEY="<SGN_KEY_PLACEHOLDER>"
@@ -85,25 +85,24 @@ export PASSPHRASE="<GPG_PASSPHRASE>"
 export SIGN_PASSPHRASE="<SIGN_PASSPHRASE>"
 
 # Perform the backup using duplicity
-echo "Backing up $TAR_FILE to B2 storage..."
-duplicity --sign-key $SGN_KEY --encrypt-key $ENC_KEY $TAR_FILE $B2_URL
+echo "Backing up \$TAR_FILE to B2 storage..."
+duplicity --sign-key \$SGN_KEY --encrypt-key \$ENC_KEY \$TAR_FILE \$B2_URL
 
-if [ $? -eq 0 ]; then
+if [ \$? -eq 0 ]; then
     echo "Backup completed successfully."
+    
+    # Remove the tar file after backup is completed
+    rm -f \$TAR_FILE
 else
     echo "Error during backup" >&2
     exit 1
 fi
 
-# Delete the tar backup file
-echo "Deleting tar backup file: $TAR_FILE"
-rm $TAR_FILE
+echo "Script execution completed."
 
 # Unset passphrase environment variables for security
 unset PASSPHRASE
 unset SIGN_PASSPHRASE
-
-echo "Script execution completed."
 EOF
 
 # Make the backup script executable
@@ -114,18 +113,44 @@ existing_cron=$(crontab -l | grep "$USER_HOME/backup_script.sh")
 
 # Prompt the user for B2 variables
 read -p "Enter B2 Account: " B2_ACCOUNT
-read -s -p "Enter B2 Key: " B2_KEY
+read -s -p "Enter B2 Key (Hidden for Security): " B2_KEY
 echo
 read -p "Enter B2 Bucket: " B2_BUCKET
 
-# Prompt the user for GPG passphrases
-read -s -p "Enter GPG Passphrase: " GPG_PASSPHRASE
-echo
+echo "Note: Please keep a secure backup of the following passphrases. Losing them will result in the inability to access your encrypted backup data."
+
+# Prompt the user for GPG passphrase and reconfirm
+while true; do
+    read -s -p "Enter GPG Passphrase (Hidden for Security): " GPG_PASSPHRASE
+    echo
+    read -s -p "Re-enter GPG Passphrase for confirmation: " GPG_PASSPHRASE_CONFIRM
+    echo
+
+    if [ "$GPG_PASSPHRASE" == "$GPG_PASSPHRASE_CONFIRM" ]; then
+        break
+    else
+        echo "Passphrases do not match. Please try again."
+    fi
+done
+
+# Prompt the user for GPG signing passphrase and reconfirm if provided
 read -s -p "Enter GPG Signing Passphrase (press Enter if same as GPG Passphrase): " SIGN_PASSPHRASE
 echo
 
-# Use the same passphrase if signing passphrase is not provided
-if [ -z "$SIGN_PASSPHRASE" ]; then
+# If signing passphrase is provided, confirm it; otherwise, use the GPG passphrase
+if [ -n "$SIGN_PASSPHRASE" ]; then
+    while true; do
+        read -s -p "Re-enter GPG Signing Passphrase for confirmation (press Enter if same as GPG Passphrase): " SIGN_PASSPHRASE_CONFIRM
+        echo
+
+        if [ "$SIGN_PASSPHRASE" == "$SIGN_PASSPHRASE_CONFIRM" ]; then
+            break
+        else
+            echo "Passphrases do not match. Please try again."
+        fi
+    done
+else
+    echo "Signing passphrase not provided. Using the same passphrase as the GPG passphrase."
     SIGN_PASSPHRASE=$GPG_PASSPHRASE
 fi
 
