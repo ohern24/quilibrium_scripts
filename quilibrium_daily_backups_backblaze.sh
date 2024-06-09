@@ -31,11 +31,11 @@ if [ -z "$SGN_KEY" ] || [ -z "$ENC_KEY" ]; then
 fi
 
 # Create the backup script
-cat <<EOF >$USER_HOME/backup_script.sh
+cat <<EOF >"$USER_HOME/backup_script.sh"
 #!/bin/bash
 
 # Retrieve the peer_id
-peer_id=\$($USER_HOME/ceremonyclient/node/node-1.4.19-linux-amd64 -peer-id | grep 'Peer' | cut -d':' -f 2 | tr -d ' ')
+peer_id=$($USER_HOME/ceremonyclient/node/node-1.4.19-linux-amd64 -peer-id | awk -F ': ' '/Peer/ {print $2}')
 
 if [ -z "\$peer_id" ]; then
     echo "Error retrieving peer_id" >&2
@@ -43,7 +43,7 @@ if [ -z "\$peer_id" ]; then
 fi
 
 # Get the current date in YYYYMMDD format
-current_date=\$(date +%Y%m%d)
+current_date=$(date +%Y%m%d)
 
 # Define the tar file name using current date and peer_id
 TAR_FILE="\${current_date}_\${peer_id}_store_backup.tar.gz"
@@ -53,7 +53,7 @@ DIR_TO_TAR="$USER_HOME/ceremonyclient/node/.config/store"
 
 # Create a tar.gz file of the specified directory
 echo "Creating tar file of \$DIR_TO_TAR..."
-tar -czf \$TAR_FILE -C \$(dirname \$DIR_TO_TAR) \$(basename \$DIR_TO_TAR)
+tar -czf "\$TAR_FILE" -C "\$(dirname "\$DIR_TO_TAR")" "\$(basename "\$DIR_TO_TAR")"
 
 if [ \$? -eq 0 ]; then
     echo "Tar file created successfully: \$TAR_FILE"
@@ -68,7 +68,7 @@ B2_KEY="<B2_KEY_PLACEHOLDER>"
 B2_BUCKET="<B2_BUCKET_PLACEHOLDER>"
 
 # Set B2_DIR to peer_id
-B2_DIR=\$peer_id
+B2_DIR="\$peer_id"
 
 # Construct the B2 URL with the user inputs
 B2_URL="b2://\${B2_ACCOUNT}:\${B2_KEY}@\${B2_BUCKET}/\${B2_DIR}"
@@ -77,22 +77,26 @@ B2_URL="b2://\${B2_ACCOUNT}:\${B2_KEY}@\${B2_BUCKET}/\${B2_DIR}"
 echo "Constructed B2 URL: \$B2_URL"
 
 # GPG keys
-SGN_KEY="<SGN_KEY_PLACEHOLDER>"
+SIGN_KEY="<SGN_KEY_PLACEHOLDER>"
 ENC_KEY="<ENC_KEY_PLACEHOLDER>"
 
 # Export passphrase environment variables for GPG
 export PASSPHRASE="<GPG_PASSPHRASE>"
 export SIGN_PASSPHRASE="<SIGN_PASSPHRASE>"
 
+# Remove the previous day's backup from backups using duplicity
+echo "Removing previous day's backup: \$OLD_TAR_FILE"
+duplicity remove-older-than 1D --force --sign-key "\$SIGN_KEY" --encrypt-key "\$ENC_KEY" "\$B2_URL"
+
 # Perform the backup using duplicity
 echo "Backing up \$TAR_FILE to B2 storage..."
-duplicity --sign-key \$SGN_KEY --encrypt-key \$ENC_KEY \$TAR_FILE \$B2_URL
+duplicity --sign-key "\$SIGN_KEY" --encrypt-key "\$ENC_KEY" "\$TAR_FILE" "\$B2_URL"
 
 if [ \$? -eq 0 ]; then
     echo "Backup completed successfully."
     
     # Remove the tar file after backup is completed
-    rm -f \$TAR_FILE
+    rm -f "\$TAR_FILE"
 else
     echo "Error during backup" >&2
     exit 1
@@ -137,21 +141,23 @@ done
 read -s -p "Enter GPG Signing Passphrase (press Enter if same as GPG Passphrase): " SIGN_PASSPHRASE
 echo
 
-# If signing passphrase is provided, confirm it; otherwise, use the GPG passphrase
-if [ -n "$SIGN_PASSPHRASE" ]; then
+if [ -z "$SIGN_PASSPHRASE" ]; then
+    SIGN_PASSPHRASE=$GPG_PASSPHRASE
+else
     while true; do
         read -s -p "Re-enter GPG Signing Passphrase for confirmation (press Enter if same as GPG Passphrase): " SIGN_PASSPHRASE_CONFIRM
         echo
 
-        if [ "$SIGN_PASSPHRASE" == "$SIGN_PASSPHRASE_CONFIRM" ]; then
+        if [ -z "$SIGN_PASSPHRASE_CONFIRM" ]; then
+            # User chose to use the same passphrase for signing
+            echo "Using the same passphrase as GPG passphrase for signing."
+            break
+        elif [ "$SIGN_PASSPHRASE" == "$SIGN_PASSPHRASE_CONFIRM" ]; then
             break
         else
             echo "Passphrases do not match. Please try again."
         fi
     done
-else
-    echo "Signing passphrase not provided. Using the same passphrase as the GPG passphrase."
-    SIGN_PASSPHRASE=$GPG_PASSPHRASE
 fi
 
 # Replace placeholders in the backup script with the actual values
