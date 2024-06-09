@@ -115,8 +115,10 @@ chmod +x $USER_HOME/backup_script.sh
 # Check if cron job exists
 existing_cron=$(crontab -l | grep "$USER_HOME/backup_script.sh")
 
+echo "Create a bucket & an app key @ https://backblaze.com. For instructions visit the Get Started docs @ https://www.backblaze.com/docs/cloud-storage-get-started-with-the-ui"
+
 # Prompt the user for B2 variables
-read -p "Enter B2 Account: " B2_ACCOUNT
+read -p "Enter B2 keyID: " B2_ACCOUNT
 read -s -p "Enter B2 Key (Hidden for Security): " B2_KEY
 echo
 read -p "Enter B2 Bucket: " B2_BUCKET
