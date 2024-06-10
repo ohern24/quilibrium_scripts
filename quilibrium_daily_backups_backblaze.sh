@@ -30,147 +30,9 @@ if [ -z "$SGN_KEY" ] || [ -z "$ENC_KEY" ]; then
     exit 1
 fi
 
-# Create the backup script
-cat <<EOF >"$USER_HOME/backup_script.sh"
-#!/bin/bash
-
-# Retrieve the peer_id
-peer_id=$($USER_HOME/ceremonyclient/node/node-1.4.19-linux-amd64 -peer-id | awk -F ': ' '/Peer/ {print $2}')
-
-if [ -z "\$peer_id" ]; then
-    echo "Error retrieving peer_id" >&2
-    exit 1
-fi
-
-# Get the current date in YYYYMMDD format
-current_date=$(date +%Y%m%d)
-
-# Define the tar file name using current date and peer_id
-TAR_FILE="\${current_date}_\${peer_id}_store_backup.tar.gz"
-
-# Define the directory to be tarred
-DIR_TO_TAR="$USER_HOME/ceremonyclient/node/.config/store"
-
-# Create a tar.gz file of the specified directory
-echo "Creating tar file of \$DIR_TO_TAR..."
-tar -czf "\$TAR_FILE" -C "\$(dirname "\$DIR_TO_TAR")" "\$(basename "\$DIR_TO_TAR")"
-
-if [ \$? -eq 0 ]; then
-    echo "Tar file created successfully: \$TAR_FILE"
-else
-    echo "Error creating tar file" >&2
-    exit 1
-fi
-
-# B2 credentials and bucket information
-B2_ACCOUNT="<B2_ACCOUNT_PLACEHOLDER>"
-B2_KEY="<B2_KEY_PLACEHOLDER>"
-B2_BUCKET="<B2_BUCKET_PLACEHOLDER>"
-
-# Set B2_DIR to peer_id
-B2_DIR="\$peer_id"
-
-# Construct the B2 URL with the user inputs
-B2_URL="b2://\${B2_ACCOUNT}:\${B2_KEY}@\${B2_BUCKET}/\${B2_DIR}"
-
-# Print the constructed B2 URL
-echo "Constructed B2 URL: \$B2_URL"
-
-# GPG keys
-SIGN_KEY="<SGN_KEY_PLACEHOLDER>"
-ENC_KEY="<ENC_KEY_PLACEHOLDER>"
-
-# Export passphrase environment variables for GPG
-export PASSPHRASE="<GPG_PASSPHRASE>"
-export SIGN_PASSPHRASE="<SIGN_PASSPHRASE>"
-
-# Remove the previous day's backup from backups using duplicity
-echo "Removing previous day's backup: \$OLD_TAR_FILE"
-duplicity remove-older-than 1D --force --sign-key "\$SIGN_KEY" --encrypt-key "\$ENC_KEY" "\$B2_URL"
-
-# Perform the backup using duplicity
-echo "Backing up \$TAR_FILE to B2 storage..."
-duplicity --sign-key "\$SIGN_KEY" --encrypt-key "\$ENC_KEY" "\$TAR_FILE" "\$B2_URL"
-
-if [ \$? -eq 0 ]; then
-    echo "Backup completed successfully."
-    
-    # Remove the tar file after backup is completed
-    rm -f "\$TAR_FILE"
-else
-    echo "Error during backup" >&2
-    exit 1
-fi
-
-echo "Script execution completed."
-
-# Unset passphrase environment variables for security
-unset PASSPHRASE
-unset SIGN_PASSPHRASE
-EOF
-
-# Make the backup script executable
-chmod +x $USER_HOME/backup_script.sh
-
-# Create the restore script
-cat <<EOF >"$USER_HOME/restore_backup.sh"
-#!/bin/bash
-
-# Define the restore directory
-RESTORE_DIR="\$USER_HOME/restore"
-
-# Create the restore directory
-mkdir -p "\$RESTORE_DIR"
-
-# B2 credentials and bucket information
-B2_ACCOUNT="<B2_ACCOUNT_PLACEHOLDER>"
-B2_KEY="<B2_KEY_PLACEHOLDER>"
-B2_BUCKET="<B2_BUCKET_PLACEHOLDER>"
-
-# Retrieve the peer_id
-peer_id=\$("\$USER_HOME/ceremonyclient/node/node-1.4.19-linux-amd64" -peer-id | awk -F ': ' '/Peer/ {print \$2}')
-
-# Set B2_DIR to peer_id
-B2_DIR="\$peer_id"
-
-# Construct the B2 URL with the user inputs
-B2_URL="b2://\${B2_ACCOUNT}:\${B2_KEY}@\${B2_BUCKET}/\${B2_DIR}"
-
-# Restore the files using duplicity
-echo "Restoring files from B2 storage..."
-duplicity --file-to-restore / "\$B2_URL" "\$RESTORE_DIR"
-
-if [ \$? -eq 0 ]; then
-    echo "Restore completed successfully."
-    
-    # Decompress the restored files
-    echo "Decompressing the restored files..."
-    tar -xvzf "\$RESTORE_DIR"
-	cd ~ && rm restore
-
-    if [ \$? -eq 0 ]; then
-        echo "Decompression completed successfully."
-    else
-        echo "Error during decompression" >&2
-        exit 1
-    fi
-else
-    echo "Error during restore" >&2
-    exit 1
-fi
-EOF
-
-# Make the restore script executable
-chmod +x $USER_HOME/restore_backup.sh
-
-# Check if cron job exists
-existing_cron=$(crontab -l | grep "$USER_HOME/backup_script.sh")
-
-echo "Create a bucket & an app key @ https://backblaze.com. For instructions visit the Get Started docs @ https://www.backblaze.com/docs/cloud-storage-get-started-with-the-ui"
-
 # Prompt the user for B2 variables
-read -p "Enter B2 keyID: " B2_ACCOUNT
-read -s -p "Enter B2 Key (Hidden for Security): " B2_KEY
+read -p "Enter B2 App keyID: " B2_ACCOUNT
+read -s -p "Enter B2 App Key (Hidden for Security): " B2_KEY
 echo
 read -p "Enter B2 Bucket: " B2_BUCKET
 
@@ -213,27 +75,145 @@ else
     done
 fi
 
-# Replace placeholders in the backup script with the actual values
-sed -i "s|<B2_ACCOUNT_PLACEHOLDER>|$B2_ACCOUNT|g" $USER_HOME/backup_script.sh
-sed -i "s|<B2_KEY_PLACEHOLDER>|$B2_KEY|g" $USER_HOME/backup_script.sh
-sed -i "s|<B2_BUCKET_PLACEHOLDER>|$B2_BUCKET|g" $USER_HOME/backup_script.sh
-sed -i "s|<SGN_KEY_PLACEHOLDER>|$SGN_KEY|g" $USER_HOME/backup_script.sh
-sed -i "s|<ENC_KEY_PLACEHOLDER>|$ENC_KEY|g" $USER_HOME/backup_script.sh
-sed -i "s|<GPG_PASSPHRASE>|$GPG_PASSPHRASE|g" $USER_HOME/backup_script.sh
-sed -i "s|<SIGN_PASSPHRASE>|$SIGN_PASSPHRASE|g" $USER_HOME/backup_script.sh
+# Retrieve the peer_id
+peer_id=$($USER_HOME/ceremonyclient/node/node-1.4.19-linux-amd64 -peer-id | awk -F ': ' '/Peer/ {print $2}')
 
-# Replace placeholders in the restore script with the actual values
-sed -i "s|<B2_ACCOUNT_PLACEHOLDER>|$B2_ACCOUNT|g" $USER_HOME/restore_backup.sh
-sed -i "s|<B2_KEY_PLACEHOLDER>|$B2_KEY|g" $USER_HOME/restore_backup.sh
-sed -i "s|<B2_BUCKET_PLACEHOLDER>|$B2_BUCKET|g" $USER_HOME/restore_backup.sh
-sed -i "s|<SGN_KEY_PLACEHOLDER>|$SGN_KEY|g" $USER_HOME/restore_backup.sh
-sed -i "s|<ENC_KEY_PLACEHOLDER>|$ENC_KEY|g" $USER_HOME/restore_backup.sh
-sed -i "s|<GPG_PASSPHRASE>|$GPG_PASSPHRASE|g" $USER_HOME/restore_backup.sh
-sed -i "s|<SIGN_PASSPHRASE>|$SIGN_PASSPHRASE|g" $USER_HOME/restore_backup.sh
+if [ -z "$peer_id" ]; then
+    echo "Error retrieving peer_id" >&2
+    exit 1
+fi
+
+# Create a configuration file
+CONFIG_FILE="$USER_HOME/backup_restore_config.conf"
+cat <<EOF >"$CONFIG_FILE"
+USER_HOME=$USER_HOME
+B2_ACCOUNT=$B2_ACCOUNT
+B2_KEY=$B2_KEY
+B2_BUCKET=$B2_BUCKET
+SGN_KEY=$SGN_KEY
+ENC_KEY=$ENC_KEY
+GPG_PASSPHRASE=$GPG_PASSPHRASE
+SIGN_PASSPHRASE=$SIGN_PASSPHRASE
+PEER_ID=$peer_id
+EOF
+
+# Create the backup script
+cat <<EOF >"$USER_HOME/backup_script.sh"
+#!/bin/bash
+
+source $CONFIG_FILE
+
+# Get the current date in YYYYMMDD format
+current_date=\$(date +%Y%m%d)
+
+# Define the tar file name using current date and peer_id
+TAR_FILE="\${current_date}_\${PEER_ID}_store_backup.tar.gz"
+
+# Define the directory to be tarred
+DIR_TO_TAR="\$USER_HOME/ceremonyclient/node/.config/store"
+
+# Create a tar.gz file of the specified directory
+echo "Creating tar file of \$DIR_TO_TAR..."
+tar -czf "\$TAR_FILE" -C "\$(dirname "\$DIR_TO_TAR")" "\$(basename "\$DIR_TO_TAR")"
+
+if [ \$? -eq 0 ]; then
+    echo "Tar file created successfully: \$TAR_FILE"
+else
+    echo "Error creating tar file" >&2
+    exit 1
+fi
+
+# Set B2_DIR to peer_id
+B2_DIR="\$PEER_ID"
+
+# Construct the B2 URL with the user inputs
+B2_URL="b2://\${B2_ACCOUNT}:\${B2_KEY}@\${B2_BUCKET}/\${B2_DIR}"
+
+# Print the constructed B2 URL
+echo "Constructed B2 URL: \$B2_URL"
+
+# Export passphrase environment variables for GPG
+export PASSPHRASE="\$GPG_PASSPHRASE"
+export SIGN_PASSPHRASE="\$SIGN_PASSPHRASE"
+
+# Remove the previous day's backup from backups using duplicity
+echo "Removing previous day's backup: \$OLD_TAR_FILE"
+duplicity remove-older-than 1D --force --sign-key "\$SGN_KEY" --encrypt-key "\$ENC_KEY" "\$B2_URL"
+
+# Perform the backup using duplicity
+echo "Backing up \$TAR_FILE to B2 storage..."
+duplicity --sign-key "\$SGN_KEY" --encrypt-key "\$ENC_KEY" "\$TAR_FILE" "\$B2_URL"
+
+if [ \$? -eq 0 ]; then
+    echo "Backup completed successfully."
+    
+    # Remove the tar file after backup is completed
+    rm -f "\$TAR_FILE"
+else
+    echo "Error during backup" >&2
+    exit 1
+fi
+
+echo "Script execution completed."
+
+# Unset passphrase environment variables for security
+unset PASSPHRASE
+unset SIGN_PASSPHRASE
+EOF
+
+# Make the backup script executable
+chmod +x $USER_HOME/backup_script.sh
+
+# Create the restore script
+cat <<EOF >"$USER_HOME/restore_backup.sh"
+#!/bin/bash
+
+source $CONFIG_FILE
+
+# Define the restore directory
+RESTORE_DIR="\$USER_HOME/restore"
+
+# Create the restore directory
+mkdir -p "\$RESTORE_DIR"
+
+# Set B2_DIR to peer_id
+B2_DIR="\$PEER_ID"
+
+# Construct the B2 URL with the user inputs
+B2_URL="b2://\${B2_ACCOUNT}:\${B2_KEY}@\${B2_BUCKET}/\${B2_DIR}"
+
+# Restore the files using duplicity
+echo "Restoring files from B2 storage..."
+duplicity --file-to-restore / "\$B2_URL" "\$RESTORE_DIR"
+
+if [ \$? -eq 0 ]; then
+    echo "Restore completed successfully."
+    
+    # Decompress the restored files
+    echo "Decompressing the restored files..."
+    tar -xvzf "\$RESTORE_DIR"
+    rm "\$RESTORE_DIR"
+
+    if [ \$? -eq 0 ]; then
+        echo "Decompression completed successfully."
+    else
+        echo "Error during decompression" >&2
+        exit 1
+    fi
+else
+    echo "Error during restore" >&2
+    exit 1
+fi
+EOF
+
+# Make the restore script executable
+chmod +x $USER_HOME/restore_backup.sh
 
 # Run the backup script once
-chmod +x $USER_HOME/backup_script.sh
 $USER_HOME/backup_script.sh
+
+# Check if cron job exists
+existing_cron=$(crontab -l | grep "$USER_HOME/backup_script.sh")
 
 # Schedule the backup script if it's not already scheduled
 if [ -z "$existing_cron" ]; then
@@ -245,7 +225,7 @@ fi
 
 # Inform the user about the restore script
 echo "The restore script has been created at $USER_HOME/restore_backup.sh."
-echo "To restore the backup, run: $USER_HOME/restore_backup.sh"
+echo "To restore the backup, run: cd && ./restore_backup.sh"
 
 # Clean up
 rm "$USER_HOME/quilibrium_daily_backups_backblaze.sh"
