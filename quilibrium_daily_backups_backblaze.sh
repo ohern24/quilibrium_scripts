@@ -119,13 +119,16 @@ cat <<EOF >"$USER_HOME/restore_backup.sh"
 # Define the restore directory
 RESTORE_DIR="\$USER_HOME/restore"
 
+# Create the restore directory
+mkdir -p "\$RESTORE_DIR"
+
 # B2 credentials and bucket information
 B2_ACCOUNT="<B2_ACCOUNT_PLACEHOLDER>"
 B2_KEY="<B2_KEY_PLACEHOLDER>"
 B2_BUCKET="<B2_BUCKET_PLACEHOLDER>"
 
 # Retrieve the peer_id
-peer_id=$($USER_HOME/ceremonyclient/node/node-1.4.19-linux-amd64 -peer-id | awk -F ': ' '/Peer/ {print $2}')
+peer_id=\$("\$USER_HOME/ceremonyclient/node/node-1.4.19-linux-amd64" -peer-id | awk -F ': ' '/Peer/ {print \$2}')
 
 # Set B2_DIR to peer_id
 B2_DIR="\$peer_id"
@@ -143,6 +146,7 @@ if [ \$? -eq 0 ]; then
     # Decompress the restored files
     echo "Decompressing the restored files..."
     tar -xvzf "\$RESTORE_DIR"
+	cd ~ && rm restore
 
     if [ \$? -eq 0 ]; then
         echo "Decompression completed successfully."
