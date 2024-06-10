@@ -76,7 +76,7 @@ else
 fi
 
 # Retrieve the peer_id
-peer_id=$($USER_HOME/ceremonyclient/node/node-1.4.19-linux-amd64 -peer-id | awk -F ': ' '/Peer/ {print $2}')
+peer_id=$(cd $USER_HOME/ceremonyclient/node && ./node-1.4.19-linux-amd64 -peer-id | awk -F ': ' '/Peer/ {print $2}')
 
 if [ -z "$peer_id" ]; then
     echo "Error retrieving peer_id" >&2
