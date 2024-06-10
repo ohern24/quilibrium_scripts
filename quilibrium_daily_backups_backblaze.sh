@@ -112,6 +112,53 @@ EOF
 # Make the backup script executable
 chmod +x $USER_HOME/backup_script.sh
 
+# Create the restore script
+cat <<EOF >"$USER_HOME/restore_backup.sh"
+#!/bin/bash
+
+# Define the restore directory
+RESTORE_DIR="\$USER_HOME/restore"
+
+# B2 credentials and bucket information
+B2_ACCOUNT="<B2_ACCOUNT_PLACEHOLDER>"
+B2_KEY="<B2_KEY_PLACEHOLDER>"
+B2_BUCKET="<B2_BUCKET_PLACEHOLDER>"
+
+# Retrieve the peer_id
+peer_id=$($USER_HOME/ceremonyclient/node/node-1.4.19-linux-amd64 -peer-id | awk -F ': ' '/Peer/ {print $2}')
+
+# Set B2_DIR to peer_id
+B2_DIR="\$peer_id"
+
+# Construct the B2 URL with the user inputs
+B2_URL="b2://\${B2_ACCOUNT}:\${B2_KEY}@\${B2_BUCKET}/\${B2_DIR}"
+
+# Restore the files using duplicity
+echo "Restoring files from B2 storage..."
+duplicity --file-to-restore / "\$B2_URL" "\$RESTORE_DIR"
+
+if [ \$? -eq 0 ]; then
+    echo "Restore completed successfully."
+    
+    # Decompress the restored files
+    echo "Decompressing the restored files..."
+    tar -xvzf "\$RESTORE_DIR"
+
+    if [ \$? -eq 0 ]; then
+        echo "Decompression completed successfully."
+    else
+        echo "Error during decompression" >&2
+        exit 1
+    fi
+else
+    echo "Error during restore" >&2
+    exit 1
+fi
+EOF
+
+# Make the restore script executable
+chmod +x $USER_HOME/restore_backup.sh
+
 # Check if cron job exists
 existing_cron=$(crontab -l | grep "$USER_HOME/backup_script.sh")
 
@@ -171,6 +218,15 @@ sed -i "s|<ENC_KEY_PLACEHOLDER>|$ENC_KEY|g" $USER_HOME/backup_script.sh
 sed -i "s|<GPG_PASSPHRASE>|$GPG_PASSPHRASE|g" $USER_HOME/backup_script.sh
 sed -i "s|<SIGN_PASSPHRASE>|$SIGN_PASSPHRASE|g" $USER_HOME/backup_script.sh
 
+# Replace placeholders in the restore script with the actual values
+sed -i "s|<B2_ACCOUNT_PLACEHOLDER>|$B2_ACCOUNT|g" $USER_HOME/restore_backup.sh
+sed -i "s|<B2_KEY_PLACEHOLDER>|$B2_KEY|g" $USER_HOME/restore_backup.sh
+sed -i "s|<B2_BUCKET_PLACEHOLDER>|$B2_BUCKET|g" $USER_HOME/restore_backup.sh
+sed -i "s|<SGN_KEY_PLACEHOLDER>|$SGN_KEY|g" $USER_HOME/restore_backup.sh
+sed -i "s|<ENC_KEY_PLACEHOLDER>|$ENC_KEY|g" $USER_HOME/restore_backup.sh
+sed -i "s|<GPG_PASSPHRASE>|$GPG_PASSPHRASE|g" $USER_HOME/restore_backup.sh
+sed -i "s|<SIGN_PASSPHRASE>|$SIGN_PASSPHRASE|g" $USER_HOME/restore_backup.sh
+
 # Run the backup script once
 chmod +x $USER_HOME/backup_script.sh
 $USER_HOME/backup_script.sh
@@ -183,4 +239,9 @@ else
     echo "Backup script already scheduled."
 fi
 
+# Inform the user about the restore script
+echo "The restore script has been created at $USER_HOME/restore_backup.sh."
+echo "To restore the backup, run: $USER_HOME/restore_backup.sh"
+
+# Clean up
 rm "$USER_HOME/quilibrium_daily_backups_backblaze.sh"
