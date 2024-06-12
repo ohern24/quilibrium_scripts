@@ -138,11 +138,11 @@ export SIGN_PASSPHRASE="\$SIGN_PASSPHRASE"
 
 # Remove the previous day's backup from backups using duplicity
 echo "Removing previous day's backup: \$OLD_TAR_FILE"
-duplicity remove-older-than 1D --force --sign-key "\$SGN_KEY" --encrypt-key "\$ENC_KEY" "\$B2_URL"
+duplicity remove-older-than 1M --force --sign-key "\$SGN_KEY" --encrypt-key "\$ENC_KEY" "\$B2_URL"
 
 # Perform the backup using duplicity
 echo "Backing up \$TAR_FILE to B2 storage..."
-duplicity --sign-key "\$SGN_KEY" --encrypt-key "\$ENC_KEY" "\$TAR_FILE" "\$B2_URL"
+duplicity full --sign-key "\$SGN_KEY" --encrypt-key "\$ENC_KEY" "\$TAR_FILE" "\$B2_URL"
 
 if [ \$? -eq 0 ]; then
     echo "Backup completed successfully."
