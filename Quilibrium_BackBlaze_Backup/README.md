@@ -7,7 +7,7 @@ NOTE: If your key application key generates a "/" inside of it try creating a ne
 
 ### To install the script + cronjob run:
 ```
-wget -P ~ https://raw.githubusercontent.com/ohern24/quilibrium_scripts/main/quilibrium_daily_backups_backblaze.sh && chmod +x ~/quilibrium_daily_backups_backblaze.sh && ~/quilibrium_daily_backups_backblaze.sh
+wget -P ~ https://raw.githubusercontent.com/ohern24/quilibrium_scripts/main/Quilibrium_BackBlaze_Backup/quilibrium_daily_backups_backblaze.sh && chmod +x ~/quilibrium_daily_backups_backblaze.sh && ~/quilibrium_daily_backups_backblaze.sh
 ```
 
 ### To retrieve backups:
