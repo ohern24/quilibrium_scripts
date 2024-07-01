@@ -24,7 +24,7 @@ from datetime import datetime
 # Function to get the unclaimed balance
 def get_unclaimed_balance():
     # Run the command
-    node_command = ['./node-1.4.20-linux-amd64', '-node-info']
+    node_command = ['./node-1.4.20.1-linux-amd64', '-node-info']
     node_directory = os.path.expanduser('~/ceremonyclient/node')
     result = subprocess.run(node_command, cwd=node_directory, stdout=subprocess.PIPE)
     output = result.stdout.decode('utf-8')
